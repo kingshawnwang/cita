@@ -15,10 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#![feature(plugin)]
+#![cfg_attr(test, feature(test))]
 #![feature(vec_remove_item)]
-#![feature(test)]
-extern crate test;
 extern crate libproto;
 extern crate protobuf;
 extern crate threadpool;
@@ -60,6 +58,8 @@ extern crate ethcore_io;
 extern crate cita_crypto;
 extern crate common_types as types;
 extern crate jsonrpc_types;
+#[cfg(test)]
+extern crate test;
 
 pub mod state;
 pub mod account_db;

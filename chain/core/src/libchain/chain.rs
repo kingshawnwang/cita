@@ -930,7 +930,6 @@ mod tests {
     extern crate cita_crypto;
     extern crate env_logger;
     extern crate mktemp;
-    extern crate test;
     use self::Chain;
     use self::cita_crypto::*;
     use super::*;
@@ -1024,7 +1023,7 @@ mod tests {
     #[bench]
     fn bench_execute_block(b: &mut Bencher) {
         let chain = init_chain();
-        let privkey = PrivKey::from(H256::from("35593bd681b8fc0737c2fdbef6e3c89a975dde47176dbd9724091e84fbf305b0")); 
+        let privkey = PrivKey::from(H256::from("35593bd681b8fc0737c2fdbef6e3c89a975dde47176dbd9724091e84fbf305b0"));
         let data = "60606040523415600b57fe5b5b5b5b608e8061001c6000396000f30060606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680635524107714603a575bfe5b3415604157fe5b605560048080359060200190919050506057565b005b806000819055505b505600a165627a7a7230582079b763be08c24124c9fa25c78b9d221bdee3e981ca0b2e371628798c41e292ca0029"
             .from_hex()
             .unwrap();

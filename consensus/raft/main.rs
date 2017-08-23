@@ -16,8 +16,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // In order to use Serde we need to enable these nightly features.
-#![feature(plugin)]
-#![feature(custom_derive)]
 #![allow(unused_must_use)]
 
 extern crate libraft; // <--- Kind of a big deal for this!
@@ -47,10 +45,10 @@ mod dispatch;
 
 use docopt::Docopt;
 use libproto::{parse_msg, MsgClass, key_to_id};
+use log::LogLevelFilter;
 use pubsub::start_pubsub;
 use raft_server::*;
 use std::sync::mpsc::{channel, Receiver};
-use log::LogLevelFilter;
 use std::thread;
 
 
@@ -92,10 +90,10 @@ fn main() {
     let (tx, rx) = channel();
     start_pubsub("consensus_cmd", vec!["chain.status", "consensus.default"], tx_sub, rx_pub);
     thread::spawn(move || loop {
-        let (key, body) = rx_sub.recv().unwrap();
-        let (cmd_id, _, content) = parse_msg(body.as_slice());
-        tx.send((key_to_id(&key), cmd_id, content)).unwrap();
-    });
+                      let (key, body) = rx_sub.recv().unwrap();
+                      let (cmd_id, _, content) = parse_msg(body.as_slice());
+                      tx.send((key_to_id(&key), cmd_id, content)).unwrap();
+                  });
 
     let (mut server, mut event_loop) = server(&args);
     let actions = server.consensus.init();

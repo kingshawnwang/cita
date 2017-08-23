@@ -15,9 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#![feature(test)]
-
-extern crate test;
 extern crate cita_crypto as crypto;
 extern crate libproto;
 extern crate protobuf;
