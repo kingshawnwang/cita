@@ -79,11 +79,12 @@ impl NowPay {
 pub mod types {
     use evm::Ext;
     use std::ops::Add;
-    use util::{U256, H256, Hashable};
     use std::ops::Deref;
-    #[allow(dead_code)]
-    fn set_storage(ext: &mut Ext, key: H256, s: &str) {
+    use util::{U256, H256, Hashable};
+
+    pub fn set_string(ext: &mut Ext, key: &H256, s: &String) {
         let bytes = s.as_bytes();
+        let key = H256::from(*key);
         if s.len() < 32 {
             let mut value = [0u8; 32];
             let mut index = 0;
@@ -96,112 +97,183 @@ pub mod types {
                 index += 1;
             }
             value[index] = (s.len() * 2) as u8;
-            debug!("key: {:?}, value: {:?}", key, H256::from_slice(&value));
+            debug!(target: "native", "key: {:?}, value: {:?}", key, H256::from_slice(&value));
             let _ = ext.set_storage(key, H256::from_slice(&value));
         } else {
             let value = H256::from(U256::from(s.len() * 2 + 1));
-            debug!("key: {:?}, value: {:?}", key, value);
+            debug!(target: "native", "key: {:?}, value: {:?}", key, value);
             let _ = ext.set_storage(key, value);
             let mut key = key.crypt_hash();
             for chunk in bytes.chunks(32) {
                 let value = H256::from(chunk);
-                debug!("key: {:?}, value: {:?}", key, value);
+                debug!(target: "native", "key: {:?}, value: {:?}", key, value);
                 let _ = ext.set_storage(key, value);
                 key = H256::from(U256::from(key).add(U256::one()));
             }
         }
     }
 
-    #[allow(dead_code)]
-    fn storage_at(ext: &mut Ext, key: &H256, str: &mut String) {
-        if let Ok(value) = ext.storage_at(key) {
-            if value[31] % 2 == 0 {
-                let len = (value[31] / 2) as usize;
-                str.push_str(&String::from_utf8_lossy(value.split_at(len).0).deref());
+    pub fn string_at(ext: &Ext, key: &H256, value: &mut String) {
+        let key = H256::from(*key);
+        if let Ok(v) = ext.storage_at(&key) {
+            if v[31] % 2 == 0 {
+                let len = (v[31] / 2) as usize;
+                value.push_str(&String::from_utf8_lossy(v.split_at(len).0).deref());
             } else {
-                let mut len = ((value.low_u64() as usize) - 1) / 2;
+                let mut len = ((v.low_u64() as usize) - 1) / 2;
                 let mut key = key.crypt_hash();
                 while len > 0 {
-                    if let Ok(value) = ext.storage_at(&key) {
+                    if let Ok(v) = ext.storage_at(&key) {
 
                         if len > 32 {
-                            str.push_str(&String::from_utf8_lossy(&value).deref());
+                            value.push_str(&String::from_utf8_lossy(&v).deref());
                             key = H256::from(U256::from(key) + U256::one());
                             len -= 32;
                         } else {
-                            str.push_str(&String::from_utf8_lossy(value.split_at(len).0).deref());
+                            value.push_str(&String::from_utf8_lossy(v.split_at(len).0).deref());
                             len = 0;
                         }
                     }
                 }
             }
-
         }
+    }
+
+    pub fn set_array(ext: &mut Ext, key: &H256, vector: &Vec<U256>) {
+        let key = H256::from(*key);
+        let value = H256::from(U256::from(vector.len()));
+        debug!(target: "native", "key: {:?}, value: {:?}", key, value);
+        let _ = ext.set_storage(key, value);
+
+        let mut key = key.crypt_hash();
+        for item in vector.iter() {
+            let value = H256::from(item);
+            debug!(target: "native", "key: {:?}, value: {:?}", key, value);
+            let _ = ext.set_storage(key, value);
+            key = H256::from(U256::from(key).add(U256::one()));
+        }
+    }
+
+    pub fn array_at(ext: &Ext, key: &H256, vec: &mut Vec<U256>) {
+        let key = H256::from(*key);
+        if let Ok(value) = ext.storage_at(&key) {
+            let mut len = value.low_u64() as usize;
+            let mut key = key.crypt_hash();
+            while len > 0 {
+                if let Ok(value) = ext.storage_at(&key) {
+                    vec.push(U256::from(value));
+                    key = H256::from(U256::from(key) + U256::one());
+                    len -= 1;
+                }
+            }
+        }
+    }
+
+    pub fn set_map(ext: &mut Ext, pos: &H256, key: &H256, value: &U256) {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(key);
+        bytes.extend_from_slice(pos);
+        let key = bytes.crypt_hash();
+        debug!(target: "native", "key: {:?}, value: {:?}", key, value);
+        let _ = ext.set_storage(key, H256::from(value));
+    }
+    pub fn set_map_string(ext: &mut Ext, pos: &H256, key: &H256, value: &String) {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(key);
+        bytes.extend_from_slice(pos);
+        let key = bytes.crypt_hash();
+        set_string(ext, &key, value);
+    }
+    pub fn map_at(ext: &Ext, pos: &H256, key: &H256, value: &mut U256) {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(key);
+        bytes.extend_from_slice(pos);
+        let key = bytes.crypt_hash();
+        if let Ok(value2) = ext.storage_at(&key) {
+            *value = U256::from(value2);
+            debug!(target: "native", "key: {:?}, value: {:?}", key, value);
+        }
+    }
+    pub fn map_at_string(ext: &Ext, pos: &H256, key: &H256, value: &mut String) {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(key);
+        bytes.extend_from_slice(pos);
+        let key = bytes.crypt_hash();
+        string_at(ext, &key, &mut value);
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
-        use action_params::ActionParams;
-        use engines::NullEngine;
-        use env_info::EnvInfo;
-        use evm::{Factory, VMType};
-        use externalities::{OriginInfo, OutputPolicy, Externalities};
-        use state::Substate;
-        use tests::helpers::get_temp_state;
-        use trace::{ExecutiveTracer, ExecutiveVMTracer};
-        use util::Bytes;
+        use env_logger;
+        use evm::tests::FakeExt;
+        use std::sync::{Once, ONCE_INIT};
+
+        static INIT: Once = ONCE_INIT;
+
+        /// Setup function that is only run once, even if called multiple times.
+        fn setup() {
+            INIT.call_once(|| { env_logger::init().unwrap(); });
+        }
         #[test]
-        fn test_set_storage_string() {
-            let mut state = get_temp_state();
-            let vm_factory = Factory::new(VMType::Interpreter, 1000);
-            let origin_info = OriginInfo::from(&ActionParams::default());
-            let mut output = Bytes::new();
-            let mut tracer = ExecutiveTracer::default();
-            let mut vm_tracer = ExecutiveVMTracer::toplevel();
-            let engine = NullEngine::default();
-            let mut substate = Substate::new();
-            let output_policy = OutputPolicy::InitContract(Some(&mut output));
-            let env_info = EnvInfo::default();
-            let mut ext = Externalities::new(
-                &mut state,
-                &env_info,
-                &engine,
-                &vm_factory,
-                1000,
-                origin_info,
-                &mut substate,
-                output_policy,
-                &mut tracer,
-                &mut vm_tracer,
-            );
-            let from = "abcdefghijabcdefghijabcdefghij";
-            set_storage(&mut ext, H256::from(0), from);
-            let mut to = String::new();
-            storage_at(&mut ext, &H256::from(0), &mut to);
-            assert_eq!(from, to);
+        fn test_string() {
+            setup();
+            let mut ext = FakeExt::new();
+            let original = String::from("abcdefghijabcdefghijabcdefghij");
+            set_string(&mut ext, &H256::from(0), &original);
+            let mut expected = String::new();
+            string_at(&mut ext, &H256::from(0), &mut expected);
+            assert_eq!(original, expected);
 
-            let from = "abcdefghijabcdefghijabcdefghija";
-            set_storage(&mut ext, H256::from(1), from);
-            let mut to = String::new();
-            storage_at(&mut ext, &H256::from(1), &mut to);
-            assert_eq!(from, to);
+            let original = String::from("abcdefghijabcdefghijabcdefghija");
+            set_string(&mut ext, &H256::from(1), &original);
+            let mut expected = String::new();
+            string_at(&mut ext, &H256::from(1), &mut expected);
+            assert_eq!(original, expected);
 
+            let original = String::from("abcdefghijabcdefghijabcdefghijab");
+            set_string(&mut ext, &H256::from(2), &original);
+            let mut expected = String::new();
+            string_at(&mut ext, &H256::from(2), &mut expected);
+            assert_eq!(original, expected);
 
-            let from = "abcdefghijabcdefghijabcdefghijab";
-            set_storage(&mut ext, H256::from(2), from);
-            let mut to = String::new();
-            storage_at(&mut ext, &H256::from(2), &mut to);
-            assert_eq!(from, to);
-
-
-            let from = "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij";
-            set_storage(&mut ext, H256::from(3), from);
-            let mut to = String::new();
-            storage_at(&mut ext, &H256::from(3), &mut to);
+            let original = String::from("abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij");
+            set_string(&mut ext, &H256::from(3), &original);
+            let mut expected = String::new();
+            string_at(&mut ext, &H256::from(3), &mut expected);
+            assert_eq!(original, expected);
+        }
+        #[test]
+        fn test_array() {
+            setup();
+            let mut ext = FakeExt::new();
+            let mut from = Vec::new();
+            for i in 0..4 {
+                from.push(U256::from(0x1234560 + i));
+            }
+            set_array(&mut ext, &H256::from(1), &from);
+            let mut to = Vec::new();
+            array_at(&mut ext, &H256::from(1), &mut to);
             assert_eq!(from, to);
         }
+
+        #[test]
+        fn test_map() {
+            setup();
+            let mut ext = FakeExt::new();
+
+            let original = U256::from(3);
+            let mut expected = U256::zero();
+            set_map(&mut ext, &H256::from(2), &H256::from(3), &original);
+            map_at(&mut ext, &H256::from(2), &H256::from(3), &mut expected);
+            assert_eq!(original, expected);
+
+
+            let original = String::from("abcdefghijabcdefghijabcdefghijabcdefghij");
+            let mut expected = String::new();
+            set_map_string(&mut ext, &H256::from(2), &H256::from(3), &original);
+            map_at_string(&mut ext, &H256::from(2), &H256::from(3), &mut expected);
+            assert_eq!(original, expected);
+        }
     }
-
-
 }
