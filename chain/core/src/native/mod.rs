@@ -199,7 +199,7 @@ pub mod types {
         bytes.extend_from_slice(key);
         bytes.extend_from_slice(pos);
         let key = bytes.crypt_hash();
-        string_at(ext, &key, &mut value);
+        string_at(ext, &key, value);
     }
 
     #[cfg(test)]
